@@ -3,7 +3,10 @@ import LargePit from './large-pit.vue';
 import SmallPit from './small-pit.vue';
 import {ObjectEmitsOptions} from '@vue/runtime-core';
 import {onMounted, watch} from 'vue';
-import {IPlayer, useGameStore} from '@/stores/game';
+import {IPit, IPlayer, useGameStore} from '@/stores/game';
+import {useSockets} from '@/composables/basic-socket-communication';
+
+const { socket, connectedTo } = useSockets();
 
 interface BoardEvents extends ObjectEmitsOptions {
   (e: 'created', players: IPlayer[]): void;
@@ -23,10 +26,6 @@ const props = defineProps<BoardProps>();
 
 const gameStore = useGameStore();
 
-const getTeleportTargetId = (player: IPlayer) => {
-  return `player-${player.id}`;
-};
-
 onMounted(() => {
   gameStore.createBoard(
       props.numberOfPlayers,
@@ -36,10 +35,31 @@ onMounted(() => {
   emits('created', gameStore.players);
 });
 
-const pitClickHandler = (pit: any) => {
+const pitClickHandler = (pit: IPit) => {
+  if (connectedTo.value) {
+    socket.emit('do-move', {
+      move: pit.id,
+      to: connectedTo.value
+    });
+  }
+
   gameStore.playStonesFromPit(pit);
   emits('turnEnded');
 }
+
+socket.on('move-done', data => {
+  console.log('game-board :: move-done', data.move);
+  const pitId = Number.parseInt(data.move);
+  if (!pitId) {
+    console.log('game-board :: Received move wasn\'t a valid pit ID', data.move);
+    return;
+  }
+
+  console.log(gameStore.allPits[pitId]);
+  gameStore.playStonesFromPit(gameStore.allPits[pitId]);
+  emits('turnEnded');
+});
+
 </script>
 
 <template>

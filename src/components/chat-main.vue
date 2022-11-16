@@ -10,7 +10,6 @@ socket.on('move-done', data => {
     console.log('move-done', data);
 });
 
-
 const sendMsg = () => {
     socket.emit('do-move', {
         move: 'test',
